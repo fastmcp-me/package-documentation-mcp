@@ -1,0 +1,38 @@
+{
+  "name": "docs-fetcher-mcp",
+  "version": "1.0.0",
+  "description": "MCP server that fetches library documentation",
+  "main": "build/index.js",
+  "type": "module",
+  "bin": {
+    "docs-fetcher-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod +x build/index.js",
+    "dev": "tsc --watch",
+    "start": "node build/index.js",
+    "install-server": "node install.js"
+  },
+  "keywords": [
+    "mcp",
+    "documentation",
+    "claude",
+    "cursor",
+    "docs-fetcher"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.0",
+    "cheerio": "^1.0.0",
+    "node-fetch": "^3.3.2",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
