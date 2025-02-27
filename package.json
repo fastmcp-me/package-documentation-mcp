@@ -1,27 +1,41 @@
 {
-  "name": "docs-fetcher-mcp",
+  "name": "@cdugo/docs-fetcher-mcp",
   "version": "1.0.0",
-  "description": "MCP server that fetches library documentation",
+  "description": "MCP server that fetches package documentation from multiple language ecosystems for LLMs like Claude without requiring API keys",
   "main": "build/index.js",
   "type": "module",
   "bin": {
-    "docs-fetcher-mcp": "./build/index.js"
+    "docs-fetcher-mcp": "./build/index.js",
+    "docs-fetcher-mcp-install": "./docs-fetcher-mcp-install.js"
   },
   "scripts": {
-    "build": "tsc && chmod +x build/index.js",
+    "build": "tsc && chmod +x build/index.js && chmod +x docs-fetcher-mcp-install.js",
     "dev": "tsc --watch",
     "start": "node build/index.js",
-    "install-server": "node install.js"
+    "install-server": "node install.js",
+    "prepublishOnly": "npm run build",
+    "smithery": "npx -y @smithery/cli@latest run @cdugo/mcp-get-docs --config \"{}\""
   },
   "keywords": [
     "mcp",
     "documentation",
     "claude",
     "cursor",
-    "docs-fetcher"
+    "docs-fetcher",
+    "smithery",
+    "package-docs",
+    "library-docs"
   ],
-  "author": "",
+  "author": "cdugo",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cdugo/package-documentation-mcp"
+  },
+  "homepage": "https://smithery.ai/server/@cdugo/mcp-get-docs/tools",
+  "bugs": {
+    "url": "https://github.com/cdugo/package-documentation-mcp/issues"
+  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.6.0",
     "cheerio": "^1.0.0",
@@ -34,5 +48,15 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "files": [
+    "build/",
+    "install.js",
+    "docs-fetcher-mcp-install.js",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

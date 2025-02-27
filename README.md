@@ -1,10 +1,10 @@
 # 📚 DocsFetcher MCP Server
 
 [![smithery badge](https://smithery.ai/badge/@cdugo/mcp-get-docs)](https://smithery.ai/server/@cdugo/mcp-get-docs)
+[![npm version](https://img.shields.io/npm/v/@cdugo/docs-fetcher-mcp.svg)](https://www.npmjs.com/package/@cdugo/docs-fetcher-mcp)
+[![npm downloads](https://img.shields.io/npm/dm/@cdugo/docs-fetcher-mcp.svg)](https://www.npmjs.com/package/@cdugo/docs-fetcher-mcp)
 
 An MCP server that fetches package documentation from multiple language ecosystems for LLMs like Claude without requiring API keys.
-
-Coming Soon: Deploying on Smithery
 
 ## ✨ Features
 
@@ -18,21 +18,44 @@ Coming Soon: Deploying on Smithery
 
 ## 🚀 Installation
 
-### Prerequisites
+### Claude Desktop
+
+1. Open Claude Desktop → Settings → Developer
+2. Click "Edit Config" and add:
+
+```json
+{
+  "mcpServers": {
+    "docsFetcher": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@smithery/cli@latest",
+        "run",
+        "@cdugo/mcp-get-docs",
+        "--config",
+        "'{}'"
+      ]
+    }
+  }
+}
+```
+
+### Cursor IDE Configuration
+
+1.  Open Cursor IDE → Settings → MCP -> Add New MCP Servier
+2.  Add:
+
+```json
+    Name: docsFetcher
+    Command: npx -y @smithery/cli@latest run @cdugo/mcp-get-docs --config "{}"
+```
+
+#### Prerequisites
 
 - 📋 Node.js 18 or later
 
-### Quick Install
-
-```bash
-git clone https://github.com/cdugo/package-documentation-mcp
-cd package-documentation-mcp
-npm run install-server
-```
-
-Follow the prompts to build and configure for Claude Desktop and/or Cursor IDE.
-
-### Manual Install
+## 🏃‍♂️ Running Locally
 
 ```bash
 git clone https://github.com/cdugo/package-documentation-mcp
@@ -40,8 +63,6 @@ cd package-documentation-mcp
 npm install
 npm run build
 ```
-
-## 🏃‍♂️ Running Locally
 
 Once installed, you can run the server locally with:
 
@@ -68,31 +89,6 @@ To specify a custom port:
 ```bash
 PORT=8080 npm start
 ```
-
-## ⚙️ Configuration
-
-### Claude Desktop
-
-1. Open Claude Desktop → Settings → Developer
-2. Click "Edit Config" and add:
-
-```json
-{
-  "mcpServers": {
-    "docsFetcher": {
-      "command": "node",
-      "args": ["/ABSOLUTE/PATH/TO/docs-fetcher-mcp/build/index.js"]
-    }
-  }
-}
-```
-
-### Cursor IDE
-
-1. Edit your Cursor config file:
-   - macOS/Linux: `~/.cursor/cursor_config.json`
-   - Windows: `%APPDATA%\Cursor\cursor_config.json`
-2. Add the same configuration as above
 
 ## 🛠️ Available Tools
 
@@ -132,6 +128,8 @@ PORT=8080 npm start
 
 ## ❓ Troubleshooting
 
+### Local Installation
+
 - **Server not showing up**: ✅ Verify absolute path in configuration
 - **Connection errors**: 🔄 Restart Claude Desktop or Cursor IDE
 - **Fetch failures**: ⚠️ Some packages may have non-standard documentation
@@ -140,3 +138,7 @@ PORT=8080 npm start
 ## 📄 License
 
 MIT
+
+```
+
+```
