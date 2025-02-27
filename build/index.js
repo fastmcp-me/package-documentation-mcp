@@ -5,8 +5,8 @@ import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import fetch from "node-fetch";
-import * as cheerio from "cheerio";
+import { isUrl, getPackageUrl, } from "./utils/packageRepository.js";
+import { scraperService } from "./services/ScraperService.js";
 // Create a temporary directory for storing documentation
 const DOCS_DIR = path.join(os.tmpdir(), "docs-fetcher-mcp");
 // Make sure the docs directory exists
@@ -105,250 +105,56 @@ Based on this information, please:
         ],
     };
 });
-// Utility function to detect if a string is a URL
-function isUrl(str) {
-    try {
-        new URL(str);
-        return true;
-    }
-    catch (e) {
-        return false;
-    }
-}
-// Function to get npm package documentation URL
-function getNpmPackageUrl(packageName) {
-    return `https://www.npmjs.com/package/${packageName}`;
-}
-// Function to get GitHub repo URL for an npm package
-async function getGitHubRepoUrl(packageName) {
-    try {
-        const response = await fetch(`https://registry.npmjs.org/${packageName}`);
-        const data = (await response.json());
-        // Try to get GitHub URL from repository field
-        if (data.repository &&
-            typeof data.repository === "object" &&
-            data.repository.url) {
-            const repoUrl = data.repository.url;
-            if (repoUrl.includes("github.com")) {
-                return repoUrl
-                    .replace("git+", "")
-                    .replace("git://", "https://")
-                    .replace(".git", "");
-            }
-        }
-        // Try to get GitHub URL from homepage field
-        if (data.homepage &&
-            typeof data.homepage === "string" &&
-            data.homepage.includes("github.com")) {
-            return data.homepage;
-        }
-        return null;
-    }
-    catch (error) {
-        console.error(`Error fetching GitHub repo URL for ${packageName}:`, error);
-        return null;
-    }
-}
-// Function to fetch and extract content from a URL
-async function fetchUrlContent(url, maxPages = 5) {
-    try {
-        const response = await fetch(url);
-        const html = await response.text();
-        // Parse HTML using cheerio
-        const $ = cheerio.load(html);
-        // Remove script and style elements
-        $("script, style, noscript, iframe").remove();
-        // Extract relevant content
-        const title = $("title").text();
-        const description = $('meta[name="description"]').attr("content") || "";
-        // Try to extract package name and version if npm URL
-        let packageInfo = "";
-        if (url.includes("npmjs.com/package/")) {
-            const packageName = url.split("/package/")[1].split("/")[0];
-            const versionElement = $(".f4.fw6.mb3").text() || "";
-            packageInfo = `\n**Package:** ${packageName}\n**Version:** ${versionElement.trim()}\n\n`;
-        }
-        // Extract main content
-        const mainContent = $("main, article, .readme, .content, .documentation, #readme").html() ||
-            "";
-        // Extract text from body if no main content found
-        const bodyText = mainContent || $("body").text();
-        // Compile the documentation with clear sections and instructions for the LLM
-        let result = `# ${title}\n\n`;
-        result += `## 📝 Documentation Summary Request\n\n`;
-        result += `This is raw documentation that needs to be summarized. Please process this information into a concise, helpful summary for the user.\n\n`;
-        result += `## 📋 Metadata\n\n`;
-        result += `Source URL: ${url}\n`;
-        if (description) {
-            result += `Description: ${description}\n`;
-        }
-        result += packageInfo;
-        result += `## 📚 Content\n\n`;
-        result += bodyText;
-        // If this is an npm page, try to fetch GitHub repo as well
-        if (url.includes("npmjs.com/package/")) {
-            const packageName = url.split("/package/")[1].split("/")[0];
-            result += `\n\n## 💻 API and Usage\n\n`;
-            // Try to extract API information from the page
-            const apiSection = $("#api, #usage, #documentation, section:contains('API')").html() || "";
-            if (apiSection) {
-                result += apiSection;
-            }
-            const githubUrl = await getGitHubRepoUrl(packageName);
-            if (githubUrl) {
-                result += `\n\n## 🔗 GitHub Repository\n\n`;
-                result += `Repository: ${githubUrl}\n\n`;
-                // Add a note about fetching the README from GitHub
-                try {
-                    const githubResponse = await fetch(`${githubUrl}/raw/master/README.md`);
-                    if (githubResponse.ok) {
-                        const readmeText = await githubResponse.text();
-                        result += `### README.md\n\n${readmeText}\n\n`;
-                    }
-                    else {
-                        // Try main branch instead of master
-                        const mainBranchResponse = await fetch(`${githubUrl}/raw/main/README.md`);
-                        if (mainBranchResponse.ok) {
-                            const readmeText = await mainBranchResponse.text();
-                            result += `### README.md\n\n${readmeText}\n\n`;
-                        }
-                    }
-                }
-                catch (error) {
-                    console.error(`Error fetching GitHub README:`, error);
-                }
-                // Try to fetch examples
-                try {
-                    const examplesResponse = await fetch(`${githubUrl}/raw/master/examples`);
-                    if (examplesResponse.ok) {
-                        result += `\n\n## 🔍 Examples\n\n`;
-                        result += `Examples available at: ${githubUrl}/tree/master/examples\n\n`;
-                    }
-                }
-                catch (error) {
-                    // Don't need to show this error
-                }
-            }
-        }
-        // Add instructions for the LLM at the end
-        result += `\n\n## 📌 Instructions for Summarization\n\n`;
-        result += `1. Provide a concise overview of what this library/package does\n`;
-        result += `2. Highlight key features and functionality\n`;
-        result += `3. Include basic usage examples when available\n`;
-        result += `4. Format the response for readability\n`;
-        result += `5. If any part of the documentation is unclear, mention this\n`;
-        result += `6. Include installation instructions if available\n`;
-        return result;
-    }
-    catch (error) {
-        console.error(`Error fetching content from ${url}:`, error);
-        return `Error fetching documentation from ${url}: ${error instanceof Error ? error.message : String(error)}`;
-    }
-}
 // Tool to fetch documentation from a URL
 server.tool("fetch-url-docs", {
     url: z.string().url().describe("URL of the library documentation to fetch"),
 }, async ({ url }) => {
     console.error(`Fetching documentation from URL: ${url}`);
     try {
-        const documentationContent = await fetchUrlContent(url);
-        // Extract library name from URL
-        let libraryName = url;
-        if (url.includes("npmjs.com/package/")) {
-            libraryName = url.split("/package/")[1].split("/")[0];
-        }
-        else if (url.includes("github.com")) {
-            const parts = url.split("github.com/")[1].split("/");
-            if (parts.length >= 2) {
-                libraryName = parts[1];
-            }
-        }
-        // Include instructions for using the prompt
-        const promptInstructions = `
----
-
-🔍 For better summarization, use the "summarize-library-docs" prompt with:
-- libraryName: "${libraryName}"
-- documentation: <the content above>
-
-Example: @summarize-library-docs with libraryName="${libraryName}"
-      `;
+        const documentationContent = await scraperService.fetchLibraryDocumentation(url);
         return {
             content: [
                 {
                     type: "text",
-                    text: documentationContent + promptInstructions,
+                    text: documentationContent,
                 },
             ],
         };
     }
     catch (error) {
         console.error("Error fetching URL content:", error);
-        // Extract library name from URL
-        let libraryName = url;
-        if (url.includes("npmjs.com/package/")) {
-            libraryName = url.split("/package/")[1].split("/")[0];
-        }
-        else if (url.includes("github.com")) {
-            const parts = url.split("github.com/")[1].split("/");
-            if (parts.length >= 2) {
-                libraryName = parts[1];
-            }
-        }
         const errorMessage = `Error fetching URL content: ${error instanceof Error ? error.message : String(error)}`;
-        // Include error-specific prompt instructions
-        const promptInstructions = `
----
-
-🔍 For information about this library despite the fetch error, use the "summarize-library-docs" prompt with:
-- libraryName: "${libraryName}"
-- errorStatus: "${error instanceof Error ? error.message : String(error)}"
-
-Example: @summarize-library-docs with libraryName="${libraryName}" and errorStatus="fetch failed"
-      `;
         return {
             content: [
                 {
                     type: "text",
-                    text: errorMessage + promptInstructions,
+                    text: errorMessage,
                 },
             ],
             isError: true,
         };
     }
 });
-// Tool to fetch npm package documentation
+// Tool to fetch package documentation with language support
 server.tool("fetch-package-docs", {
     packageName: z
         .string()
-        .describe("Name of the npm package to fetch documentation for"),
-}, async ({ packageName }) => {
-    console.error(`Fetching documentation for package: ${packageName}`);
+        .describe("Name of the package to fetch documentation for"),
+    language: z
+        .string()
+        .optional()
+        .describe("Programming language or repository type (e.g., javascript, python, java, dotnet)"),
+}, async ({ packageName, language = "javascript" }) => {
+    console.error(`Fetching documentation for package: ${packageName} (${language})`);
     try {
-        const packageUrl = getNpmPackageUrl(packageName);
+        const packageUrl = getPackageUrl(packageName, language);
         console.error(`Using package URL: ${packageUrl}`);
-        const documentationContent = await fetchUrlContent(packageUrl);
-        // Include instructions for using the prompt
-        const promptInstructions = `
----
-
-🔍 For better summarization, use the "summarize-library-docs" prompt with:
-- libraryName: "${packageName}"
-- documentation: <the content above>
-
-Example: @summarize-library-docs with libraryName="${packageName}"
-
-🔧 If you're seeing a dependency error, use the "explain-dependency-error" prompt:
-- packageName: "${packageName}" 
-- documentation: <the content above>
-
-Example: @explain-dependency-error with packageName="${packageName}"
-      `;
+        const documentationContent = await scraperService.fetchLibraryDocumentation(packageUrl);
         return {
             content: [
                 {
                     type: "text",
-                    text: documentationContent + promptInstructions,
+                    text: documentationContent,
                 },
             ],
         };
@@ -356,27 +162,11 @@ Example: @explain-dependency-error with packageName="${packageName}"
     catch (error) {
         console.error("Error fetching package content:", error);
         const errorMessage = `Error fetching package documentation: ${error instanceof Error ? error.message : String(error)}`;
-        // Include error-specific prompt instructions
-        const promptInstructions = `
----
-
-🔍 For information about this package despite the fetch error, use the "summarize-library-docs" prompt with:
-- libraryName: "${packageName}"
-- errorStatus: "${error instanceof Error ? error.message : String(error)}"
-
-Example: @summarize-library-docs with libraryName="${packageName}" and errorStatus="fetch failed"
-
-🔧 If you're seeing a dependency error, use the "explain-dependency-error" prompt:
-- packageName: "${packageName}"
-- errorStatus: "${error instanceof Error ? error.message : String(error)}"
-
-Example: @explain-dependency-error with packageName="${packageName}" and errorStatus="fetch failed"
-      `;
         return {
             content: [
                 {
                     type: "text",
-                    text: errorMessage + promptInstructions,
+                    text: errorMessage,
                 },
             ],
             isError: true,
@@ -387,55 +177,23 @@ Example: @explain-dependency-error with packageName="${packageName}" and errorSt
 server.tool("fetch-library-docs", {
     library: z
         .string()
-        .describe("Name of the npm package or URL of the library documentation to fetch"),
-}, async ({ library }) => {
-    console.error(`Fetching documentation for library: ${library}`);
+        .describe("Name of the package or URL of the library documentation to fetch"),
+    language: z
+        .string()
+        .optional()
+        .describe("Programming language or repository type if providing a package name (e.g., javascript, python, java, dotnet)"),
+}, async ({ library, language = "javascript" }) => {
+    console.error(`Fetching documentation for library: ${library} ${language ? `(${language})` : ""}`);
     try {
         // Determine if input is a URL or package name
         const isLibraryUrl = isUrl(library);
-        let documentationContent;
-        let libraryName = library;
-        if (isLibraryUrl) {
-            documentationContent = await fetchUrlContent(library);
-            // Try to extract library name from URL
-            if (library.includes("npmjs.com/package/")) {
-                libraryName = library.split("/package/")[1].split("/")[0];
-            }
-            else if (library.includes("github.com")) {
-                const parts = library.split("github.com/")[1].split("/");
-                if (parts.length >= 2) {
-                    libraryName = parts[1];
-                }
-            }
-        }
-        else {
-            // Convert package name to URL
-            const packageUrl = getNpmPackageUrl(library);
-            console.error(`Using package URL: ${packageUrl}`);
-            documentationContent = await fetchUrlContent(packageUrl);
-            libraryName = library;
-        }
-        // Include instructions for using the prompt
-        const promptInstructions = `
----
-
-🔍 For better summarization, use the "summarize-library-docs" prompt with:
-- libraryName: "${libraryName}"
-- documentation: <the content above>
-
-Example: @summarize-library-docs with libraryName="${libraryName}"
-
-🔧 If you're seeing a dependency error, use the "explain-dependency-error" prompt:
-- packageName: "${libraryName}" 
-- documentation: <the content above>
-
-Example: @explain-dependency-error with packageName="${libraryName}"
-      `;
+        let url = isLibraryUrl ? library : getPackageUrl(library, language);
+        const documentationContent = await scraperService.fetchLibraryDocumentation(url);
         return {
             content: [
                 {
                     type: "text",
-                    text: documentationContent + promptInstructions,
+                    text: documentationContent,
                 },
             ],
         };
@@ -443,46 +201,97 @@ Example: @explain-dependency-error with packageName="${libraryName}"
     catch (error) {
         console.error("Error fetching library documentation:", error);
         const errorMessage = `Error fetching library documentation: ${error instanceof Error ? error.message : String(error)}`;
-        // Include error-specific prompt instructions
-        const promptInstructions = `
----
-
-🔍 For information about this library despite the fetch error, use the "summarize-library-docs" prompt with:
-- libraryName: "${library}"
-- errorStatus: "${error instanceof Error ? error.message : String(error)}"
-
-Example: @summarize-library-docs with libraryName="${library}" and errorStatus="fetch failed"
-
-🔧 If you're seeing a dependency error, use the "explain-dependency-error" prompt:
-- packageName: "${library}"
-- errorStatus: "${error instanceof Error ? error.message : String(error)}"
-
-Example: @explain-dependency-error with packageName="${library}" and errorStatus="fetch failed"
-      `;
         return {
             content: [
                 {
                     type: "text",
-                    text: errorMessage + promptInstructions,
+                    text: errorMessage,
                 },
             ],
             isError: true,
         };
     }
 });
-// Start receiving messages on stdin and sending messages on stdout
-async function main() {
-    try {
-        const transport = new StdioServerTransport();
-        await server.connect(transport);
-        console.error("DocsFetcher MCP Server running on stdio");
+// Tool to fetch documentation from multiple language repositories at once
+server.tool("fetch-multilingual-docs", {
+    packageName: z
+        .string()
+        .describe("Name of the package to fetch documentation for"),
+    languages: z
+        .array(z.string())
+        .describe("List of programming languages or repository types to check (e.g., javascript, python, java)"),
+}, async ({ packageName, languages }) => {
+    console.error(`Fetching documentation for package: ${packageName} across languages: ${languages.join(", ")}`);
+    const results = {};
+    let hasSuccessfulFetch = false;
+    for (const language of languages) {
+        try {
+            console.error(`Trying ${language} repository...`);
+            const packageUrl = getPackageUrl(packageName, language);
+            const documentationContent = await scraperService.fetchLibraryDocumentation(packageUrl);
+            results[language] = {
+                url: packageUrl,
+                success: true,
+                content: documentationContent,
+            };
+            hasSuccessfulFetch = true;
+        }
+        catch (error) {
+            console.error(`Error fetching ${language} documentation:`, error);
+            results[language] = {
+                success: false,
+                error: error instanceof Error ? error.message : String(error),
+            };
+        }
     }
-    catch (error) {
-        console.error("Fatal error:", error);
-        process.exit(1);
+    if (!hasSuccessfulFetch) {
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: `Failed to fetch documentation for ${packageName} in any of the requested languages: ${languages.join(", ")}.`,
+                },
+            ],
+            isError: true,
+        };
     }
-}
-main().catch((error) => {
-    console.error("Uncaught error:", error);
+    // Format the successful results
+    const bestLanguage = Object.keys(results).find((lang) => results[lang].success) ||
+        languages[0];
+    const bestContent = results[bestLanguage].content;
+    // Include a summary of all language results
+    const summaryLines = [
+        `## Documentation Search Results for '${packageName}'`,
+    ];
+    summaryLines.push("");
+    for (const language of languages) {
+        const result = results[language];
+        if (result.success) {
+            summaryLines.push(`✅ **${language}**: Successfully fetched documentation from ${result.url}`);
+        }
+        else {
+            summaryLines.push(`❌ **${language}**: Failed - ${result.error}`);
+        }
+    }
+    summaryLines.push("");
+    summaryLines.push(`---`);
+    summaryLines.push("");
+    summaryLines.push(`# Documentation Content (from ${bestLanguage} repository)`);
+    summaryLines.push("");
+    const summary = summaryLines.join("\n");
+    const completeContent = summary + bestContent;
+    return {
+        content: [
+            {
+                type: "text",
+                text: completeContent,
+            },
+        ],
+    };
+});
+// Create the transport and start the server
+const transport = new StdioServerTransport();
+server.connect(transport).catch((error) => {
+    console.error("Server error:", error);
     process.exit(1);
 });

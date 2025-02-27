@@ -2,14 +2,16 @@
 
 [![smithery badge](https://smithery.ai/badge/@cdugo/mcp-get-docs)](https://smithery.ai/server/@cdugo/mcp-get-docs)
 
-An MCP server that fetches npm package documentation for LLMs like Claude without requiring API keys.
+An MCP server that fetches package documentation from multiple language ecosystems for LLMs like Claude without requiring API keys.
 
 Coming Soon: Deploying on Smithery
 
 ## ✨ Features
 
-- 📦 Fetches documentation for npm packages (by name or URL)
-- 📄 Extracts README, API docs, examples, and GitHub info
+- 🌐 Supports multiple programming languages (JavaScript, Python, Java, .NET, Ruby, PHP, Rust, Go, Swift)
+- 📦 Fetches documentation for packages by name or URL
+- 🔍 Crawls documentation sites to extract comprehensive information
+- 📄 Extracts README, API docs, code examples, and repository info
 - 🧠 Provides structured data for LLM summarization
 - 💬 Includes specialized prompts for documentation analysis
 - 🔑 **No API key required** - works natively with Claude Desktop and Cursor IDE
@@ -95,8 +97,9 @@ PORT=8080 npm start
 ## 🛠️ Available Tools
 
 1. **fetch-url-docs**: 🔗 Fetch docs from a specific URL
-2. **fetch-package-docs**: 📦 Fetch docs for an npm package
+2. **fetch-package-docs**: 📦 Fetch docs for a package with optional language specification
 3. **fetch-library-docs**: 🧠 Smart tool that works with either package name or URL
+4. **fetch-multilingual-docs**: 🌍 Fetch docs for a package across multiple language ecosystems
 
 ## 📝 Available Prompts
 
@@ -109,11 +112,18 @@ PORT=8080 npm start
 
 - "What is Express.js and how do I use it?"
 - "Tell me about the React library"
+- "How do I use requests in Python?"
 
-### Dependency Error Resolution
+### Multi-language Support
 
-- "I'm getting an error: 'Cannot find module 'lodash''"
-- "npm ERR! Cannot find module 'dotenv'. What does this mean?"
+- "Show me documentation for lodash in JavaScript"
+- "Compare pandas in Python and data.table in R"
+
+### Using Tools
+
+- "@fetch-package-docs with packageName='express' and language='javascript'"
+- "@fetch-package-docs with packageName='requests' and language='python'"
+- "@fetch-multilingual-docs with packageName='http' and languages=['javascript', 'python', 'rust']"
 
 ### Using Prompts
 
@@ -125,6 +135,7 @@ PORT=8080 npm start
 - **Server not showing up**: ✅ Verify absolute path in configuration
 - **Connection errors**: 🔄 Restart Claude Desktop or Cursor IDE
 - **Fetch failures**: ⚠️ Some packages may have non-standard documentation
+- **Language support**: 🌐 If a language isn't working, try using the package's direct URL
 
 ## 📄 License
 
