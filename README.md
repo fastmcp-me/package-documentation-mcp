@@ -6,6 +6,10 @@
 
 An MCP server that fetches package documentation from multiple language ecosystems for LLMs like Claude without requiring API keys.
 
+<a href="https://glama.ai/mcp/servers/8yfwtryuc5">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/8yfwtryuc5/badge" alt="DocsFetcher Server MCP server" />
+</a>
+
 ## ✨ Features
 
 - 🌐 Supports multiple programming languages (JavaScript, Python, Java, .NET, Ruby, PHP, Rust, Go, Swift)
@@ -138,7 +142,3 @@ PORT=8080 npm start
 ## 📄 License
 
 MIT
-
-```
-
-```
